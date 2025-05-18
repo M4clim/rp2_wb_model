@@ -1,0 +1,17 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+# --- Jupyter / VS Code ---
+.ipynb_checkpoints/
+.vscode/
+# --- Environnements virtuels (optionnel) ---
+env/
+.venv/
+# --- Fichiers de sortie ---
+outputs/
+*.json
+*.log
+# --- Godot ---
+.import/
+export/
