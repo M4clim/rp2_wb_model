@@ -2,6 +2,7 @@ import math
 from typing import Any, Dict
 
 from core.montecarlo import metropolis_step
+from core.phase_dynamics import update_phase_and_rho
 from core.wb_model import WBModel
 
 
@@ -18,7 +19,7 @@ def step_simulation(model: WBModel, step_id: int = 0) -> Dict[str, Any]:
     """
     # Étape Monte Carlo
     metropolis_step(model, T=1.0)
-
+    update_phase_and_rho(model, c2=1.0, c3=1.5)
     # Relaxation phase φ (simple moyenne)
     for n in model.graph.graph.nodes:
         if model.sigma[n] == 1:
