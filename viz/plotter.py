@@ -39,7 +39,7 @@ class Plotter:
             fig = ax.figure
 
         # Récupération du graphe
-        G = model.network
+        G = model.graph.graph
 
         # Positions des nœuds
         pos = nx.get_node_attributes(G, "pos")
@@ -127,67 +127,60 @@ class Plotter:
 
         return fig
 
-    def plot_stats(self, stats, ax=None, show=True, save_path=None):
+    def plot_statistics(self, history, ax=None, show=True, save_path=None):
         """
-        Visualise l'évolution des statistiques de simulation
+        Visualise l'évolution des statistiques du modèle WB
 
         Args:
-            stats (list): Liste des statistiques par étape
-            ax (matplotlib.axes.Axes, optional): Axes matplotlib existants
-            show (bool): Afficher la figure
-            save_path (str, optional): Chemin pour sauvegarder l'image
+            history: Liste des statistiques pour chaque étape
+            ax: Axes matplotlib (optionnel)
+            show: Afficher la figure
+            save_path: Chemin pour sauvegarder la figure
 
         Returns:
-            matplotlib.figure.Figure: Figure matplotlib
+            Figure matplotlib
         """
-        if not stats:
-            print("Aucune statistique à afficher")
-            return None
-
-        # Création de la figure si nécessaire
         if ax is None:
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=self.figsize, sharex=True)
+            fig, ax = plt.subplots(figsize=self.figsize)
         else:
             fig = ax.figure
-            ax1, ax2 = ax[0], ax[1]
 
         # Extraction des données
-        steps = [s["step"] for s in stats]
-        n_pot_values = [s["N_pot"] for s in stats]
-        active_nodes = [s["num_active"] for s in stats]
-        coherence_values = [s["coherence"] for s in stats]
+        steps = [stat["step"] for stat in history]
+        active = [stat["active"] for stat in history]
+        n_pot = [stat["N_pot"] for stat in history]
+        lambda_vac = [
+            stat.get("Λ_vac", 1.0) for stat in history
+        ]  # Nouveau paramètre Λ_vac
 
-        # Graphique de N_pot
-        ax1.plot(steps, n_pot_values, "b-", label="N_pot")
-        ax1.set_ylabel("Potentiel (N_pot)")
-        ax1.set_title("Évolution des paramètres au cours de la simulation")
-        ax1.grid(True, alpha=0.3)
-        ax1.legend()
+        # Création d'un axe secondaire pour N_pot
+        ax2 = ax.twinx()
 
-        # Graphique du nombre de nœuds actifs et de la cohérence
-        ax2.plot(steps, active_nodes, "r-", label="Nœuds actifs")
-        ax2.set_xlabel("Étape de simulation")
-        ax2.set_ylabel("Nombre de nœuds actifs")
-        ax2.grid(True, alpha=0.3)
+        # Tracé des courbes
+        lines1 = ax.plot(steps, active, "b-", label="Actifs")
+        lines2 = ax2.plot(steps, n_pot, "r-", label="N_pot")
+        lines3 = ax.plot(steps, lambda_vac, "g--", label="Λ_vac")
 
-        # Ajouter la cohérence sur un axe secondaire
-        ax3 = ax2.twinx()
-        ax3.plot(steps, coherence_values, "g--", label="Cohérence")
-        ax3.set_ylabel("Cohérence")
+        # Ajout des légendes et labels
+        all_lines = lines1 + lines2 + lines3
+        labels = [line.get_label() for line in all_lines]
+        ax.legend(all_lines, labels, loc="upper right")
 
-        # Combiner les légendes
-        lines1, labels1 = ax2.get_legend_handles_labels()
-        lines2, labels2 = ax3.get_legend_handles_labels()
-        ax2.legend(lines1 + lines2, labels1 + labels2, loc="upper right")
+        ax.set_xlabel("Étape")
+        ax.set_ylabel("Nombre de nœuds actifs / Λ_vac")
+        ax2.set_ylabel("N_pot")
 
-        # Sauvegarde si demandée
+        ax.set_title("Évolution des statistiques du modèle WB")
+        ax.grid(True, alpha=0.3)
+
+        # Affichage ou sauvegarde
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches="tight")
-            print(f"Figure sauvegardée dans {save_path}")
 
-        # Affichage
         if show:
-            plt.tight_layout()
             plt.show()
 
         return fig
+
+    # Alias pour compatibilité avec le code existant
+    plot_stats = plot_statistics

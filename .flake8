@@ -1,0 +1,5 @@
+[flake8]
+# ignore complètement la règle « line too long »
+ignore = E501, W503, F541, F401, F811
+# tu peux aussi ignorer plusieurs codes :
+# ignore = E501, W503

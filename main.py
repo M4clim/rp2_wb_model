@@ -51,10 +51,18 @@ def main():
     # Chargement de la configuration
     config = load_config()
 
-    # Paramètres de la simulation
-    # Utilisation du rayon pour le patch hexagonal au lieu de size_r et size_c
-    radius = config.get("radius", 5)
-    num_steps = config.get("num_steps", 100)
+    # Extraction des sections de configuration
+    graph_params = config.get("graph_parameters", {})
+    sim_params = config.get("simulation_parameters", {})
+    model_params = config.get("model_parameters", {})
+    init_params = config.get("initial_conditions", {})
+
+    # Extraction des paramètres du graphe
+    radius = graph_params.get("radius", 5)
+
+    # Extraction des paramètres de simulation
+    num_steps = sim_params.get("num_steps", 100)
+    export_interval = sim_params.get("export_interval", 10)
 
     # Création du graphe RP2
     print(f"\nCréation du graphe RP2 hexagonal (rayon: {radius})...")
@@ -79,10 +87,10 @@ def main():
 
     # Création du modèle WB
     print("\nInitialisation du modèle WB...")
-    model = WBModel(graph, config)
+    model = WBModel(graph, model_params)
     model.initialize_fields(
-        sigma_config=config.get("initial_sigma_config", "center_A"),
-        phi_config=config.get("initial_phi_config", "random"),
+        mode=init_params.get("initial_sigma_config", "center_A"),
+        phi_config=init_params.get("initial_phi_config", "random"),
     )
 
     # Initialisation du logger
@@ -93,7 +101,7 @@ def main():
         logger.record_stats(step, model, stats)
 
         # Export périodique vers JSON
-        if step % config.get("export_interval", 10) == 0:
+        if step % export_interval == 0:
             export_to_json(model, filename=f"outputs/snapshots/step_{step:04d}.json")
 
     # Exécution de la simulation
@@ -101,8 +109,8 @@ def main():
     history = run_simulation(
         model,
         num_steps=num_steps,
-        num_mc_sweeps=config.get("num_mc_sweeps", 1),
-        num_relax_steps=config.get("num_relax_steps", 5),
+        num_mc_sweeps=sim_params.get("num_mc_sweeps", 1),
+        num_relax_steps=sim_params.get("num_relax_steps", 5),
         callback=log_callback,
     )
 
