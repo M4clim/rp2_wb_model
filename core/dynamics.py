@@ -3,8 +3,9 @@ import math
 from typing import Any, Dict
 
 from core.cluster_utils import find_soliton_clusters
+from core.metric_effective import compute_g_eff
 from core.montecarlo import metropolis_step
-from core.phase_dynamics import update_phase_and_rho
+from core.phase_dynamics import next_twist_step, update_phase_and_rho
 from core.wb_model import WBModel
 
 
@@ -12,8 +13,8 @@ def step_simulation(model: WBModel, step_id: int, params) -> dict:
     """
     0) Mise à jour dynamique de model.Lambda_vac (UNE FOIS)
     1) Flips MC (P↔A) avec coût dépendant de model.Lambda_vac
-    2) Mise à jour de phi & rho (vectorielle + Ω)
-    3) Relaxation simple des phases pour lisser (optionnel)
+    2) Calcul de la métrique effective
+    3) Mise à jour de phi & rho (vectorielle + Ω)
     4) Relaxation simple (1 passe)
     5) Retourne les stats pour tracé
     """
@@ -28,10 +29,24 @@ def step_simulation(model: WBModel, step_id: int, params) -> dict:
     # 1) Flips Monte Carlo
     metropolis_step(model, T=params.get("T_eff", 1.0))
 
-    # 2) Dynamique de phase & rho
+    # 2) Calcul de la métrique effective
+    compute_g_eff(
+        model,
+        alpha=params.get("alpha", 1.0),
+        n=params.get("n_power", 1.0),
+        beta=params.get("beta", 1.0),
+        eps0=params.get("eps0", 1.0),
+        m=params.get("m_power", 1.0),
+        p=params.get("p_power", 1.0),
+    )
+    for _ in range(params.get("twist_steps_per_iter", 5)):
+        for twist in model.graph.graph.nodes:
+            twist = next_twist_step(model, twist)
+
+    # 3) Dynamique de phase & rho
     update_phase_and_rho(model, c2=params.get("c2", 1.0), c3=params.get("c3", 1.5))
 
-    # 3) Cluster detection & refund
+    # 3bis) Cluster detection & refund
     # Seuil et facteur à régler dans params
     threshold = params.get("rho_soliton_threshold", 0.6)
     refund_factor = params.get("sol_refund_factor", 0.2)
