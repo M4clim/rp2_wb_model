@@ -1,0 +1,31 @@
+repos:
+  # 1) Black – formatage automatique
+  - repo: https://github.com/psf/black
+    rev: 24.4.2            # ↔ version Black (tag git)
+    hooks:
+      - id: black
+        language_version: python3.11   # adapte à ta version
+
+  # 2) isort – ordre des imports
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (reorder imports)
+
+  # 3) Flake8 – style / erreurs potentielles
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-bugbear     # plugins utiles
+          - flake8-builtins
+          - flake8-comprehensions
+
+  # 4) End-of-file / trailing spaces (optionnel)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
