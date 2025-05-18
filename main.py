@@ -110,8 +110,8 @@ def main():
         model,
         num_steps=num_steps,
         num_mc_sweeps=sim_params.get("num_mc_sweeps", 1),
-        num_relax_steps=sim_params.get("num_relax_steps", 5),
         callback=log_callback,
+        params=model_params,
     )
 
     # Calcul des paramètres d'ordre finaux

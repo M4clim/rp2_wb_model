@@ -1,42 +1,80 @@
+import cmath
 import math
 from typing import Any, Dict
 
+from core.cluster_utils import find_soliton_clusters
 from core.montecarlo import metropolis_step
 from core.phase_dynamics import update_phase_and_rho
 from core.wb_model import WBModel
 
 
-def step_simulation(model: WBModel, step_id: int = 0) -> Dict[str, Any]:
+def step_simulation(model: WBModel, step_id: int, params) -> dict:
     """
-    Effectue une étape de simulation pour le modèle WB
-
-    Args:
-        model: Instance du modèle WB
-        step_id: Identifiant de l'étape
-
-    Returns:
-        dict: Statistiques de l'étape de simulation
+    0) Mise à jour dynamique de model.Lambda_vac (UNE FOIS)
+    1) Flips MC (P↔A) avec coût dépendant de model.Lambda_vac
+    2) Mise à jour de phi & rho (vectorielle + Ω)
+    3) Relaxation simple des phases pour lisser (optionnel)
+    4) Relaxation simple (1 passe)
+    5) Retourne les stats pour tracé
     """
-    # Étape Monte Carlo
-    metropolis_step(model, T=1.0)
-    update_phase_and_rho(model, c2=1.0, c3=1.5)
-    # Relaxation phase φ (simple moyenne)
+
+    # 0) Mise à jour de Lambda_vac UNE SEULE FOIS
+    Phi_Wb = sum(1 for s in model.sigma.values() if s == 1)
+    Lmin = params.get("L_min", 0.2)
+    L0 = params.get("L0", 1.0)
+    kφ = params.get("k_phi", 0.01)
+    model.Lambda_vac = Lmin + (L0 - Lmin) * math.exp(-kφ * Phi_Wb)
+
+    # 1) Flips Monte Carlo
+    metropolis_step(model, T=params.get("T_eff", 1.0))
+
+    # 2) Dynamique de phase & rho
+    update_phase_and_rho(model, c2=params.get("c2", 1.0), c3=params.get("c3", 1.5))
+
+    # 3) Cluster detection & refund
+    # Seuil et facteur à régler dans params
+    threshold = params.get("rho_soliton_threshold", 0.6)
+    refund_factor = params.get("sol_refund_factor", 0.2)
+    clusters = find_soliton_clusters(model.graph, model.rho, threshold)
+    for cluster in clusters:
+        # Si cluster actif avant et entièrement inactif maintenant → dissolution
+        was_active = any(model.prev_sigma.get(n, 0) == 1 for n in cluster)
+        now_inactive = all(model.sigma.get(n, 0) != 1 for n in cluster)
+        if was_active and now_inactive:
+            # Calcul de l'énergie effective
+            E_sol = sum(model.rho.get(n, 0) for n in cluster)
+            refund = refund_factor * E_sol
+            # remboursement
+            model.consume_N_pot(-refund)
+
+    # 4) Relaxation simple (1 passe)
+    new_phis = {}
     for n in model.graph.graph.nodes:
-        if model.sigma[n] == 1:
-            phis = [model.phi[j] for j in model.graph.get_neighbors(n)]
-            if phis:
-                model.phi[n] = sum(phis) / len(phis)
+        if model.sigma.get(n, 0) != 1:
+            continue
+        neighs = [j for j in model.graph.get_neighbors(n) if model.sigma.get(j, 0) == 1]
+        if len(neighs) == 0:
+            continue
+        # moyenne vectorielle
+        vec = sum(cmath.exp(1j * model.phi[j]) for j in neighs)
+        avg_angle = cmath.phase(vec)
+        new_phis[n] = avg_angle
+    for n, angle in new_phis.items():
+        model.phi[n] = angle % (2 * math.pi)
 
-    # Statistiques
-    Φ_Wb = sum(1 for s in model.sigma.values() if s == 1)
-    Λ_min, Λ0, kΦ = 0.2, 1.0, 0.01
-    Λ_vac = Λ_min + (Λ0 - Λ_min) * math.exp(-kΦ * Φ_Wb)
-
-    return {"step": step_id, "N_pot": model.N_pot, "active": Φ_Wb, "Λ_vac": Λ_vac}
+    # 5) Retour des statistiques
+    stats = {
+        "step": step_id,
+        "N_pot": model.N_pot,
+        "active": Phi_Wb,
+        "Lambda_vac": model.Lambda_vac,
+        "mean_rho": sum(model.rho.values()) / len(model.rho),
+    }
+    return stats
 
 
 def run_simulation(
-    model, num_steps=100, num_mc_sweeps=1, num_relax_steps=5, callback=None
+    model, num_steps=100, num_mc_sweeps=1, callback=None, params: Dict[str, Any] = {}
 ):
     """
     Exécute une simulation complète du modèle WB
@@ -55,7 +93,7 @@ def run_simulation(
     for t in range(num_steps):
         # Effectuer plusieurs balayages Monte Carlo si nécessaire
         for _ in range(num_mc_sweeps):
-            stats = step_simulation(model, t)
+            stats = step_simulation(model, t, params)
             history.append(stats)
 
             # Appeler la fonction de callback si elle est fournie

@@ -16,9 +16,8 @@ def metropolis_step(model: WBModel, T: float = 1.0):
 
         dE = model.delta_energy_flip(n)
         # Λ_vac influence P→A : plus Λ bas, moins de flips
-        Λ_min, Λ0, kΦ = 0.2, 1.0, 0.01
-        Φ_Wb = sum(1 for s in model.sigma.values() if s == 1)
-        Λ_vac = Λ_min + (Λ0 - Λ_min) * math.exp(-kΦ * Φ_Wb)
+
+        Λ_vac = model.Lambda_vac
 
         # Différencier les coûts selon le type de transition
         if model.sigma[n] == -1:  # P→A (actualisation)

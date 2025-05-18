@@ -5,8 +5,7 @@ import random
 from typing import Any, Dict
 
 from numba import njit
-
-from core.rp2_graph import RP2Graph
+from numpy.polynomial.tests.test_laguerre import L0
 
 
 class WBModel:
@@ -14,7 +13,7 @@ class WBModel:
 
     def __init__(self, graph: "RP2Graph", config: Dict[str, Any] = None):
         self.graph = graph
-
+        self.Lambda_vac = L0  # initial
         # Paramètres par défaut
         N_pot_max = 1000.0
         N_pot_initial_fraction = 0.8
@@ -31,6 +30,7 @@ class WBModel:
         self.sigma: Dict[int, int] = {}
         self.phi: Dict[int, float] = {}
         self.rho: Dict[int, float] = {}
+        self.prev_sigma = dict(self.sigma)
 
     # ------------------ INIT ------------------
     def initialize_fields(self, mode: str = "random", phi_config: str = "random"):
@@ -130,14 +130,6 @@ class WBModel:
 
     # ------------------ flips / N_pot ----------
     def apply_flip(self, n: int):
-        self.sigma[n] *= -1
+        self.prev_sigma[n] = self.sigma[n]
+        self.sigma[n] = -self.sigma[n]
         self.rho[n] = self._rho_single(n)
-
-    def consume_N_pot(self, delta: float):
-        """
-        Ajuste le niveau de N_pot en fonction du delta fourni.
-        - Si delta > 0 : consommation de potentiel (comme avant)
-        - Si delta < 0 : restitution de potentiel (nouveau)
-        Ne dépasse jamais N_pot_max et ne descend jamais sous 0.
-        """
-        self.N_pot = max(0.0, min(self.N_pot_max, self.N_pot - delta))
